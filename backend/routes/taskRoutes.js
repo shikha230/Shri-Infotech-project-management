@@ -5,66 +5,66 @@ const router = express.Router();
 const authMiddleware = require("../middleware/authMiddleware");
 
 const {
-  createProject,
-  getProjects,
-  getMyProjects,
-  getProjectById,
-  updateProject,
-  deleteProject,
-} = require("../controllers/projectController");
+  createTask,
+  getTasks,
+  getMyTasks,
+  toggleTask,
+  updateTask,
+  deleteTask,
+} = require("../controllers/taskController");
 
 // ========================================
-// CREATE PROJECT
+// CREATE TASK
 // ========================================
 router.post(
   "/",
   authMiddleware,
-  createProject
+  createTask
 );
 
 // ========================================
-// GET ALL PROJECTS
+// GET ALL TASKS
 // ========================================
 router.get(
   "/",
   authMiddleware,
-  getProjects
+  getTasks
 );
 
 // ========================================
-// GET MY PROJECTS - EMPLOYEE
+// GET LOGGED-IN EMPLOYEE TASKS
 // ========================================
 router.get(
   "/my",
   authMiddleware,
-  getMyProjects
+  getMyTasks
 );
 
 // ========================================
-// GET PROJECT BY ID
+// TOGGLE MY TASK
 // ========================================
-router.get(
-  "/:id",
+router.patch(
+  "/:id/toggle",
   authMiddleware,
-  getProjectById
+  toggleTask
 );
 
 // ========================================
-// UPDATE PROJECT
+// UPDATE TASK
 // ========================================
 router.put(
   "/:id",
   authMiddleware,
-  updateProject
+  updateTask
 );
 
 // ========================================
-// DELETE PROJECT
+// DELETE TASK
 // ========================================
 router.delete(
   "/:id",
   authMiddleware,
-  deleteProject
+  deleteTask
 );
 
 module.exports = router;

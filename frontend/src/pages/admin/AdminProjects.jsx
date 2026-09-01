@@ -5,15 +5,15 @@ import Navbar from "../../components/Navbar";
 import api from "../../services/api";
 
 function AdminProjects() {
-  // =========================
+  // ==================================================
   // SIDEBAR
-  // =========================
+  // ==================================================
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // =========================
+  // ==================================================
   // PROJECT STATES
-  // =========================
+  // ==================================================
 
   const [projects, setProjects] = useState([]);
   const [search, setSearch] = useState("");
@@ -23,24 +23,31 @@ function AdminProjects() {
   const [saving, setSaving] = useState(null);
   const [editingId, setEditingId] = useState(null);
 
-  // =========================
+  // ==================================================
+  // EMPLOYEE STATES
+  // ==================================================
+
+  const [employees, setEmployees] = useState([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
+
+  // ==================================================
   // DOCUMENT STATES
-  // =========================
+  // ==================================================
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [deletingDocument, setDeletingDocument] = useState(null);
   const [previewDocument, setPreviewDocument] = useState(null);
 
-  // =========================
+  // ==================================================
   // EXPANDED PROJECT
-  // =========================
+  // ==================================================
 
   const [expandedId, setExpandedId] = useState(null);
 
-  // =========================
+  // ==================================================
   // EDIT FORM
-  // =========================
+  // ==================================================
 
   const initialEditForm = {
     name: "",
@@ -48,7 +55,7 @@ function AdminProjects() {
     status: "Planning",
     technologies: "",
     teamSize: 1,
-    teamMembers: "",
+    teamMembers: [],
     budget: "",
     startDate: "",
     endDate: "",
@@ -57,13 +64,64 @@ function AdminProjects() {
 
   const [editForm, setEditForm] = useState(initialEditForm);
 
-  // =========================
-  // FETCH PROJECTS
-  // =========================
+  // ==================================================
+  // FETCH DATA
+  // ==================================================
 
   useEffect(() => {
     fetchProjects();
+    fetchEmployees();
   }, []);
+
+  // ==================================================
+  // FETCH PROJECTS
+  // ==================================================
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+
+      const response = await api.get("/projects");
+
+      setProjects(response.data?.projects || []);
+    } catch (error) {
+      console.error("Failed to fetch projects:", error);
+
+      alert(
+        error.response?.data?.message ||
+          "Failed to load projects."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==================================================
+  // FETCH EMPLOYEES
+  // ==================================================
+
+  const fetchEmployees = async () => {
+    try {
+      setEmployeesLoading(true);
+
+      const response = await api.get("/users/employees");
+
+      setEmployees(response.data?.employees || []);
+    } catch (error) {
+      console.error("Failed to fetch employees:", error);
+
+      alert(
+        error.response?.data?.message ||
+          "Failed to load employees."
+      );
+    } finally {
+      setEmployeesLoading(false);
+    }
+  };
+
+  // ==================================================
+  // GET DEADLINE INFORMATION
+  // ==================================================
 
   const getProjectDeadlineInfo = (project) => {
     if (!project?.endDate || project.status === "Completed") {
@@ -91,16 +149,25 @@ function AdminProjects() {
     const days = Math.floor(totalHours / 24);
     const hours = totalHours % 24;
 
-    const timeText =
-      days > 0
-        ? `${days} day${days > 1 ? "s" : ""} ${hours} hour${hours !== 1 ? "s" : ""}`
-        : `${hours} hour${hours !== 1 ? "s" : ""}`;
+    let timeText;
+
+    if (days > 0) {
+      timeText = `${days} day${
+        days > 1 ? "s" : ""
+      } ${hours} hour${
+        hours !== 1 ? "s" : ""
+      }`;
+    } else {
+      timeText = `${hours} hour${
+        hours !== 1 ? "s" : ""
+      }`;
+    }
 
     return {
       projectId: project._id,
       name: project.name || "Untitled project",
       timeText,
-      dueDate: new Date(project.endDate).toLocaleDateString(),
+      dueDate: endDate.toLocaleDateString(),
     };
   };
 
@@ -108,28 +175,9 @@ function AdminProjects() {
     .map((project) => getProjectDeadlineInfo(project))
     .filter(Boolean);
 
-  const fetchProjects = async () => {
-    try {
-      setLoading(true);
-
-      const response = await api.get("/projects");
-
-      setProjects(response.data?.projects || []);
-    } catch (error) {
-      console.error("Failed to fetch projects:", error);
-
-      alert(
-        error.response?.data?.message ||
-          "Failed to load projects."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // =========================
+  // ==================================================
   // GET PROJECT DOCUMENTS
-  // =========================
+  // ==================================================
 
   const getProjectDocuments = (project) => {
     if (
@@ -147,9 +195,63 @@ function AdminProjects() {
     return [];
   };
 
-  // =========================
+  // ==================================================
+  // GET TEAM MEMBER ID
+  // ==================================================
+
+  const getTeamMemberId = (member) => {
+    if (!member) {
+      return null;
+    }
+
+    if (typeof member === "string") {
+      return member;
+    }
+
+    if (member._id) {
+      return member._id;
+    }
+
+    if (member.id) {
+      return member.id;
+    }
+
+    return null;
+  };
+
+  // ==================================================
+  // GET EMPLOYEE NAME
+  // ==================================================
+
+  const getEmployeeName = (member) => {
+    if (!member) {
+      return "Unknown employee";
+    }
+
+    // Populated employee
+    if (typeof member === "object") {
+      return (
+        member.name ||
+        member.email ||
+        "Unknown employee"
+      );
+    }
+
+    // ObjectId string
+    const employee = employees.find(
+      (item) => item._id === member
+    );
+
+    return (
+      employee?.name ||
+      employee?.email ||
+      member
+    );
+  };
+
+  // ==================================================
   // PREVIEW DOCUMENT
-  // =========================
+  // ==================================================
 
   const handlePreviewDocument = (document) => {
     if (!document?.url) {
@@ -160,32 +262,42 @@ function AdminProjects() {
     setPreviewDocument(document);
   };
 
-  // =========================
+  // ==================================================
   // CLOSE PREVIEW
-  // =========================
+  // ==================================================
 
   const closePreview = () => {
     setPreviewDocument(null);
   };
 
-  // =========================
+  // ==================================================
   // EXPAND / COLLAPSE
-  // =========================
+  // ==================================================
 
   const toggleProject = (id) => {
-    if (editingId === id) return;
+    if (editingId === id) {
+      return;
+    }
 
     setExpandedId((currentId) =>
       currentId === id ? null : id
     );
   };
 
-  // =========================
+  // ==================================================
   // START EDITING
-  // =========================
+  // ==================================================
 
   const handleEdit = (project) => {
     const documents = getProjectDocuments(project);
+
+    const teamMemberIds = Array.isArray(
+      project.teamMembers
+    )
+      ? project.teamMembers
+          .map(getTeamMemberId)
+          .filter(Boolean)
+      : [];
 
     setEditingId(project._id);
     setExpandedId(project._id);
@@ -204,11 +316,12 @@ function AdminProjects() {
         ? project.technologies.join(", ")
         : "",
 
-      teamSize: project.teamSize || 1,
+      teamSize:
+        project.teamSize ||
+        teamMemberIds.length ||
+        1,
 
-      teamMembers: Array.isArray(project.teamMembers)
-        ? project.teamMembers.join(", ")
-        : "",
+      teamMembers: teamMemberIds,
 
       budget:
         project.budget !== undefined &&
@@ -241,9 +354,9 @@ function AdminProjects() {
     }, 100);
   };
 
-  // =========================
+  // ==================================================
   // EDIT INPUT CHANGE
-  // =========================
+  // ==================================================
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
@@ -254,14 +367,45 @@ function AdminProjects() {
     }));
   };
 
-  // =========================
+  // ==================================================
+  // EMPLOYEE SELECTION
+  // ==================================================
+
+  const handleEmployeeToggle = (employeeId) => {
+    setEditForm((current) => {
+      const alreadySelected =
+        current.teamMembers.includes(employeeId);
+
+      if (alreadySelected) {
+        return {
+          ...current,
+          teamMembers:
+            current.teamMembers.filter(
+              (id) => id !== employeeId
+            ),
+        };
+      }
+
+      return {
+        ...current,
+        teamMembers: [
+          ...current.teamMembers,
+          employeeId,
+        ],
+      };
+    });
+  };
+
+  // ==================================================
   // FILE CHANGE
-  // =========================
+  // ==================================================
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
 
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     // 10 MB limit
     if (file.size > 10 * 1024 * 1024) {
@@ -275,21 +419,24 @@ function AdminProjects() {
     setSelectedFile(file);
   };
 
-  // =========================
+  // ==================================================
   // REMOVE SELECTED FILE
-  // =========================
+  // ==================================================
 
   const handleRemoveSelectedFile = () => {
     setSelectedFile(null);
   };
 
-  // =========================
+  // ==================================================
   // DELETE EXISTING DOCUMENT
-  // =========================
+  // ==================================================
 
   const handleDeleteDocument = async (document) => {
     if (!editingId) {
-      alert("Please edit the project before deleting a document.");
+      alert(
+        "Please edit the project before deleting a document."
+      );
+
       return;
     }
 
@@ -302,17 +449,17 @@ function AdminProjects() {
     }
 
     const confirmed = window.confirm(
-      `Are you sure you want to delete "${document.name || "this document"}"?`
+      `Are you sure you want to delete "${
+        document.name || "this document"
+      }"?`
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
       setDeletingDocument(document.publicId);
-
-      // =========================
-      // DELETE FROM BACKEND
-      // =========================
 
       await api.delete("/upload", {
         data: {
@@ -321,22 +468,17 @@ function AdminProjects() {
         },
       });
 
-      // =========================
-      // REMOVE FROM EDIT FORM
-      // =========================
-
+      // Remove from edit form
       setEditForm((current) => ({
         ...current,
 
         documents: current.documents.filter(
-          (item) => item.publicId !== document.publicId
+          (item) =>
+            item.publicId !== document.publicId
         ),
       }));
 
-      // =========================
-      // UPDATE PROJECT LIST
-      // =========================
-
+      // Update project list
       setProjects((currentProjects) =>
         currentProjects.map((project) => {
           if (project._id !== editingId) {
@@ -350,7 +492,8 @@ function AdminProjects() {
             ...project,
 
             documents: currentDocuments.filter(
-              (item) => item.publicId !== document.publicId
+              (item) =>
+                item.publicId !== document.publicId
             ),
           };
         })
@@ -372,9 +515,9 @@ function AdminProjects() {
     }
   };
 
-  // =========================
+  // ==================================================
   // CANCEL EDIT
-  // =========================
+  // ==================================================
 
   const handleCancelEdit = () => {
     setEditingId(null);
@@ -382,12 +525,16 @@ function AdminProjects() {
     setUploadingFile(false);
     setDeletingDocument(null);
 
-    setEditForm(initialEditForm);
+    setEditForm({
+      ...initialEditForm,
+      teamMembers: [],
+      documents: [],
+    });
   };
 
-  // =========================
+  // ==================================================
   // SAVE EDIT
-  // =========================
+  // ==================================================
 
   const handleSave = async (id) => {
     if (!editForm.name.trim()) {
@@ -408,14 +555,26 @@ function AdminProjects() {
       return;
     }
 
+    if (
+      editForm.teamMembers.length > 0 &&
+      Number(editForm.teamSize) <
+        editForm.teamMembers.length
+    ) {
+      alert(
+        "Team size cannot be smaller than the number of assigned employees."
+      );
+
+      return;
+    }
+
     try {
       setSaving(id);
 
       let uploadedDocument = null;
 
-      // =========================
+      // ==================================================
       // UPLOAD NEW DOCUMENT
-      // =========================
+      // ==================================================
 
       if (selectedFile) {
         try {
@@ -430,7 +589,8 @@ function AdminProjects() {
             formData,
             {
               headers: {
-                "Content-Type": "multipart/form-data",
+                "Content-Type":
+                  "multipart/form-data",
               },
             }
           );
@@ -442,29 +602,32 @@ function AdminProjects() {
         }
       }
 
-      // =========================
+      // ==================================================
       // PREPARE TECHNOLOGIES
-      // =========================
+      // ==================================================
 
       const technologies = editForm.technologies
         .split(",")
         .map((item) => item.trim())
         .filter(Boolean);
 
-      // =========================
+      // ==================================================
       // PREPARE TEAM MEMBERS
-      // =========================
+      // ==================================================
 
-      const teamMembers = editForm.teamMembers
-        .split(",")
-        .map((member) => member.trim())
-        .filter(Boolean);
+      const teamMembers = Array.isArray(
+        editForm.teamMembers
+      )
+        ? editForm.teamMembers
+        : [];
 
-      // =========================
+      // ==================================================
       // PREPARE DOCUMENTS
-      // =========================
+      // ==================================================
 
-      let documents = Array.isArray(editForm.documents)
+      let documents = Array.isArray(
+        editForm.documents
+      )
         ? [...editForm.documents]
         : [];
 
@@ -472,9 +635,9 @@ function AdminProjects() {
         documents.push(uploadedDocument);
       }
 
-      // =========================
+      // ==================================================
       // PROJECT DATA
-      // =========================
+      // ==================================================
 
       const updatedData = {
         name: editForm.name.trim(),
@@ -485,34 +648,32 @@ function AdminProjects() {
 
         technologies,
 
-        teamSize: Number(editForm.teamSize) || 1,
+        teamSize:
+          Number(editForm.teamSize) ||
+          teamMembers.length ||
+          1,
 
         teamMembers,
 
-        budget: Number(editForm.budget) || 0,
+        budget:
+          Number(editForm.budget) || 0,
 
         documents,
       };
 
-      // =========================
+      // ==================================================
       // DATES
-      // =========================
+      // ==================================================
 
-      if (editForm.startDate) {
-        updatedData.startDate = editForm.startDate;
-      } else {
-        updatedData.startDate = null;
-      }
+      updatedData.startDate =
+        editForm.startDate || null;
 
-      if (editForm.endDate) {
-        updatedData.endDate = editForm.endDate;
-      } else {
-        updatedData.endDate = null;
-      }
+      updatedData.endDate =
+        editForm.endDate || null;
 
-      // =========================
+      // ==================================================
       // UPDATE PROJECT
-      // =========================
+      // ==================================================
 
       const response = await api.put(
         `/projects/${id}`,
@@ -528,9 +689,9 @@ function AdminProjects() {
         );
       }
 
-      // =========================
+      // ==================================================
       // UPDATE LOCAL STATE
-      // =========================
+      // ==================================================
 
       setProjects((currentProjects) =>
         currentProjects.map((project) =>
@@ -540,15 +701,20 @@ function AdminProjects() {
         )
       );
 
-      // =========================
+      // ==================================================
       // RESET
-      // =========================
+      // ==================================================
 
       setSelectedFile(null);
       setUploadingFile(false);
       setEditingId(null);
       setExpandedId(null);
-      setEditForm(initialEditForm);
+
+      setEditForm({
+        ...initialEditForm,
+        teamMembers: [],
+        documents: [],
+      });
     } catch (error) {
       console.error(
         "Update project error:",
@@ -567,16 +733,18 @@ function AdminProjects() {
     }
   };
 
-  // =========================
+  // ==================================================
   // DELETE PROJECT
-  // =========================
+  // ==================================================
 
   const handleDelete = async (id) => {
     const confirmed = window.confirm(
       "Are you sure you want to delete this project?"
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
       setDeleting(id);
@@ -611,9 +779,9 @@ function AdminProjects() {
     }
   };
 
-  // =========================
+  // ==================================================
   // SEARCH
-  // =========================
+  // ==================================================
 
   const filteredProjects = projects.filter(
     (project) => {
@@ -646,6 +814,11 @@ function AdminProjects() {
         ? project.teamMembers
         : [];
 
+      const teamMemberText = teamMembers
+        .map(getEmployeeName)
+        .join(" ")
+        .toLowerCase();
+
       return (
         projectName.includes(searchText) ||
         description.includes(searchText) ||
@@ -655,18 +828,14 @@ function AdminProjects() {
             .toLowerCase()
             .includes(searchText)
         ) ||
-        teamMembers.some((member) =>
-          String(member)
-            .toLowerCase()
-            .includes(searchText)
-        )
+        teamMemberText.includes(searchText)
       );
     }
   );
 
-  // =========================
+  // ==================================================
   // STATUS STYLE
-  // =========================
+  // ==================================================
 
   const getStatusClass = (status) => {
     if (status === "Completed") {
@@ -684,13 +853,16 @@ function AdminProjects() {
     return "bg-slate-100 text-slate-600 border border-slate-200";
   };
 
-  // =========================
+  // ==================================================
   // DOCUMENT TYPE HELPERS
-  // =========================
+  // ==================================================
 
   const isPdf = (document) => {
-    const type = document?.type?.toLowerCase() || "";
-    const name = document?.name?.toLowerCase() || "";
+    const type =
+      document?.type?.toLowerCase() || "";
+
+    const name =
+      document?.name?.toLowerCase() || "";
 
     return (
       type.includes("pdf") ||
@@ -699,56 +871,77 @@ function AdminProjects() {
   };
 
   const isOfficeDocument = (document) => {
-    const type = document?.type?.toLowerCase() || "";
-    const name = document?.name?.toLowerCase() || "";
+    const type =
+      document?.type?.toLowerCase() || "";
+
+    const name =
+      document?.name?.toLowerCase() || "";
 
     return (
       type.includes("word") ||
       type.includes("excel") ||
       type.includes("powerpoint") ||
       type.includes("officedocument") ||
-      /\.(doc|docx|xls|xlsx|ppt|pptx|odt|ods|odp)$/i.test(name)
+      /\.(doc|docx|xls|xlsx|ppt|pptx|odt|ods|odp)$/i.test(
+        name
+      )
     );
   };
 
   const isImage = (document) => {
-    const type = document?.type?.toLowerCase() || "";
-    const name = document?.name?.toLowerCase() || "";
+    const type =
+      document?.type?.toLowerCase() || "";
+
+    const name =
+      document?.name?.toLowerCase() || "";
 
     return (
       type.startsWith("image/") ||
-      /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(name)
+      /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(
+        name
+      )
     );
   };
 
-  const getDocumentPreviewUrl = (document) => {
-    if (!document?.url) return "";
+  // ==================================================
+  // DOCUMENT PREVIEW URL
+  // ==================================================
 
-    if (isPdf(document) || isOfficeDocument(document)) {
-      return `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(document.url)}`;
+  const getDocumentPreviewUrl = (document) => {
+    if (!document?.url) {
+      return "";
+    }
+
+    if (
+      isPdf(document) ||
+      isOfficeDocument(document)
+    ) {
+      return `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(
+        document.url
+      )}`;
     }
 
     return document.url;
   };
 
-  // =========================
+  // ==================================================
   // RENDER
-  // =========================
+  // ==================================================
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* =========================
+      {/* ==================================================
           SIDEBAR
-      ========================= */}
+      ================================================== */}
 
       <Sidebar
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
       />
 
-      {/* =========================
+      {/* ==================================================
           MAIN
-      ========================= */}
+      ================================================== */}
 
       <main
         className={`min-h-screen ml-0 transition-all duration-300 ${
@@ -757,9 +950,9 @@ function AdminProjects() {
             : "lg:ml-0"
         }`}
       >
-        {/* =========================
+        {/* ==================================================
             NAVBAR
-        ========================= */}
+        ================================================== */}
 
         <Navbar
           sidebarOpen={sidebarOpen}
@@ -767,9 +960,9 @@ function AdminProjects() {
         />
 
         <section className="p-6 lg:p-8">
-          {/* =========================
+          {/* ==================================================
               HEADER
-          ========================= */}
+          ================================================== */}
 
           <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -794,9 +987,9 @@ function AdminProjects() {
             </Link>
           </div>
 
-          {/* =========================
-              DEADLINE WARNING BANNER
-          ========================= */}
+          {/* ==================================================
+              DEADLINE WARNINGS
+          ================================================== */}
 
           {deadlineWarnings.length > 0 && (
             <div className="mb-5 space-y-2">
@@ -805,7 +998,9 @@ function AdminProjects() {
                   key={warning.projectId}
                   className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm"
                 >
-                  <div className="mt-0.5 text-lg">⏰</div>
+                  <div className="mt-0.5 text-lg">
+                    ⏰
+                  </div>
 
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-amber-800">
@@ -813,7 +1008,9 @@ function AdminProjects() {
                     </p>
 
                     <p className="mt-1 text-sm text-amber-700">
-                      "{warning.name}" is ending in {warning.timeText}. Due on {warning.dueDate}.
+                      "{warning.name}" is ending in{" "}
+                      {warning.timeText}. Due on{" "}
+                      {warning.dueDate}.
                     </p>
                   </div>
                 </div>
@@ -821,14 +1018,14 @@ function AdminProjects() {
             </div>
           )}
 
-          {/* =========================
+          {/* ==================================================
               SEARCH
-          ========================= */}
+          ================================================== */}
 
           <div className="mb-5 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
             <input
               type="text"
-              placeholder="Search project, status, technology or team member..."
+              placeholder="Search project, status, technology or employee..."
               value={search}
               onChange={(e) =>
                 setSearch(e.target.value)
@@ -837,9 +1034,9 @@ function AdminProjects() {
             />
           </div>
 
-          {/* =========================
+          {/* ==================================================
               LOADING
-          ========================= */}
+          ================================================== */}
 
           {loading ? (
             <div className="rounded-xl border border-slate-200 bg-white p-10 text-center">
@@ -850,10 +1047,6 @@ function AdminProjects() {
               </p>
             </div>
           ) : filteredProjects.length === 0 ? (
-            /* =========================
-               EMPTY STATE
-            ========================= */
-
             <div className="rounded-xl border border-slate-200 bg-white p-12 text-center">
               <div className="text-4xl">
                 📁
@@ -872,9 +1065,9 @@ function AdminProjects() {
               </p>
             </div>
           ) : (
-            /* =========================
+            /* ==================================================
                PROJECT LIST
-            ========================= */
+            ================================================== */
 
             <div className="space-y-3">
               {filteredProjects.map((project) => {
@@ -887,6 +1080,13 @@ function AdminProjects() {
                 const projectDocuments =
                   getProjectDocuments(project);
 
+                const projectTeamMembers =
+                  Array.isArray(
+                    project.teamMembers
+                  )
+                    ? project.teamMembers
+                    : [];
+
                 return (
                   <div
                     id={`project-${project._id}`}
@@ -897,9 +1097,9 @@ function AdminProjects() {
                         : "border-slate-200 hover:border-slate-300 hover:shadow-md"
                     }`}
                   >
-                    {/* =========================
+                    {/* ==================================================
                         PROJECT HEADER
-                    ========================= */}
+                    ================================================== */}
 
                     <div
                       onClick={() =>
@@ -946,8 +1146,6 @@ function AdminProjects() {
                       {/* RIGHT SIDE */}
 
                       <div className="flex shrink-0 items-center gap-2">
-                        {/* EDIT */}
-
                         <button
                           type="button"
                           onClick={(e) => {
@@ -960,8 +1158,6 @@ function AdminProjects() {
                           Edit
                         </button>
 
-                        {/* DELETE */}
-
                         <button
                           type="button"
                           onClick={(e) => {
@@ -972,7 +1168,8 @@ function AdminProjects() {
                             );
                           }}
                           disabled={
-                            deleting === project._id
+                            deleting ===
+                            project._id
                           }
                           className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-50"
                         >
@@ -980,8 +1177,6 @@ function AdminProjects() {
                             ? "Deleting..."
                             : "Delete"}
                         </button>
-
-                        {/* EXPAND */}
 
                         <div
                           className={`ml-1 flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-transform duration-200 ${
@@ -995,15 +1190,15 @@ function AdminProjects() {
                       </div>
                     </div>
 
-                    {/* =========================
+                    {/* ==================================================
                         EXPANDED CONTENT
-                    ========================= */}
+                    ================================================== */}
 
                     {(isExpanded || isEditing) && (
                       <div className="border-t border-slate-100">
-                        {/* =========================
+                        {/* ==================================================
                             EDIT MODE
-                        ========================= */}
+                        ================================================== */}
 
                         {isEditing ? (
                           <div className="p-6">
@@ -1154,24 +1349,124 @@ function AdminProjects() {
                                 />
                               </div>
 
-                              {/* TEAM MEMBERS */}
+                              {/* ==================================================
+                                  EMPLOYEES
+                              ================================================== */}
 
-                              <div>
+                              <div className="lg:col-span-2">
                                 <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                  Team Members
+                                  Assign Employees
                                 </label>
 
-                                <input
-                                  name="teamMembers"
-                                  value={
-                                    editForm.teamMembers
-                                  }
-                                  onChange={
-                                    handleEditChange
-                                  }
-                                  placeholder="Vansh, Rahul, Aman"
-                                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:bg-white"
-                                />
+                                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                  {employeesLoading ? (
+                                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
+
+                                      Loading employees...
+                                    </div>
+                                  ) : employees.length ===
+                                    0 ? (
+                                    <div className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-center">
+                                      <p className="text-sm font-semibold text-slate-600">
+                                        No employees found
+                                      </p>
+
+                                      <p className="mt-1 text-xs text-slate-400">
+                                        Create employee accounts first.
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                      {employees.map(
+                                        (employee) => {
+                                          const isSelected =
+                                            editForm.teamMembers.includes(
+                                              employee._id
+                                            );
+
+                                          return (
+                                            <label
+                                              key={
+                                                employee._id
+                                              }
+                                              className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${
+                                                isSelected
+                                                  ? "border-blue-300 bg-blue-50"
+                                                  : "border-slate-200 bg-white hover:border-blue-200"
+                                              }`}
+                                            >
+                                              <input
+                                                type="checkbox"
+                                                checked={
+                                                  isSelected
+                                                }
+                                                onChange={() =>
+                                                  handleEmployeeToggle(
+                                                    employee._id
+                                                  )
+                                                }
+                                                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                              />
+
+                                              <div className="min-w-0">
+                                                <p className="truncate text-sm font-semibold text-slate-700">
+                                                  {
+                                                    employee.name
+                                                  }
+                                                </p>
+
+                                                <p className="truncate text-xs text-slate-400">
+                                                  {
+                                                    employee.email
+                                                  }
+                                                </p>
+                                              </div>
+                                            </label>
+                                          );
+                                        }
+                                      )}
+                                    </div>
+                                  )}
+
+                                  <div className="mt-3 flex items-center justify-between">
+                                    <p className="text-xs text-slate-400">
+                                      {
+                                        editForm
+                                          .teamMembers
+                                          .length
+                                      }{" "}
+                                      employee
+                                      {editForm.teamMembers
+                                        .length !==
+                                      1
+                                        ? "s"
+                                        : ""}{" "}
+                                      selected
+                                    </p>
+
+                                    {editForm.teamMembers
+                                      .length > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setEditForm(
+                                            (
+                                              current
+                                            ) => ({
+                                              ...current,
+                                              teamMembers:
+                                                [],
+                                            })
+                                          )
+                                        }
+                                        className="text-xs font-semibold text-red-500 hover:text-red-600"
+                                      >
+                                        Clear All
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
 
                               {/* START DATE */}
@@ -1214,14 +1509,12 @@ function AdminProjects() {
                                 />
                               </div>
 
-                              {/* =========================
+                              {/* ==================================================
                                   DOCUMENTS
-                              ========================= */}
+                              ================================================== */}
 
                               <div className="lg:col-span-2">
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-                                  {/* DOCUMENT HEADER */}
-
                                   <div className="mb-4 flex items-center justify-between gap-3">
                                     <div>
                                       <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -1237,10 +1530,11 @@ function AdminProjects() {
                                       {
                                         editForm
                                           .documents
-                                          ?.length || 0
+                                          ?.length
                                       }{" "}
                                       {editForm.documents
-                                        ?.length === 1
+                                        ?.length ===
+                                      1
                                         ? "document"
                                         : "documents"}
                                     </span>
@@ -1282,13 +1576,13 @@ function AdminProjects() {
                                               </div>
                                             </div>
 
-                                            {/* ACTIONS */}
-
                                             <div className="flex shrink-0 items-center gap-2">
                                               {document.url && (
                                                 <button
                                                   type="button"
-                                                  onClick={(e) => {
+                                                  onClick={(
+                                                    e
+                                                  ) => {
                                                     e.stopPropagation();
 
                                                     handlePreviewDocument(
@@ -1307,7 +1601,9 @@ function AdminProjects() {
                                                   deletingDocument ===
                                                   document.publicId
                                                 }
-                                                onClick={(e) => {
+                                                onClick={(
+                                                  e
+                                                ) => {
                                                   e.stopPropagation();
 
                                                   handleDeleteDocument(
@@ -1362,8 +1658,6 @@ function AdminProjects() {
                                       className="block w-full cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
                                     />
 
-                                    {/* SELECTED FILE */}
-
                                     {selectedFile && (
                                       <div className="mt-3 flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 px-3 py-3">
                                         <div className="flex min-w-0 items-center gap-3">
@@ -1405,8 +1699,6 @@ function AdminProjects() {
                                         </button>
                                       </div>
                                     )}
-
-                                    {/* UPLOAD STATUS */}
 
                                     {uploadingFile && (
                                       <div className="mt-3 flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2">
@@ -1456,7 +1748,8 @@ function AdminProjects() {
                                 }
                                 className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                               >
-                                {saving === project._id
+                                {saving ===
+                                project._id
                                   ? uploadingFile
                                     ? "Uploading..."
                                     : "Saving..."
@@ -1465,9 +1758,9 @@ function AdminProjects() {
                             </div>
                           </div>
                         ) : (
-                          /* =========================
+                          /* ==================================================
                              NORMAL EXPANDED VIEW
-                          ========================= */
+                          ================================================== */
 
                           <div className="px-5 py-5">
                             {/* DESCRIPTION */}
@@ -1494,7 +1787,8 @@ function AdminProjects() {
                                 </p>
 
                                 <p className="mt-1 text-xs font-semibold text-slate-700">
-                                  {project.technologies
+                                  {project
+                                    .technologies
                                     ?.length
                                     ? project.technologies.join(
                                         ", "
@@ -1511,9 +1805,17 @@ function AdminProjects() {
                                 </p>
 
                                 <p className="mt-1 text-xs font-semibold text-slate-700">
-                                  {project.teamSize ||
+                                  {projectTeamMembers.length ||
+                                    project.teamSize ||
                                     0}{" "}
-                                  members
+                                  member
+                                  {(
+                                    projectTeamMembers.length ||
+                                    project.teamSize ||
+                                    0
+                                  ) !== 1
+                                    ? "s"
+                                    : ""}
                                 </p>
                               </div>
 
@@ -1568,38 +1870,58 @@ function AdminProjects() {
                               </div>
                             </div>
 
-                            {/* TEAM MEMBERS */}
+                            {/* ==================================================
+                                TEAM MEMBERS
+                            ================================================== */}
 
                             <div className="mt-5 border-t border-slate-100 pt-5">
                               <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                                Team Members
+                                Assigned Employees
                               </p>
 
-                              {project.teamMembers
-                                ?.length ? (
-                                <div className="flex flex-wrap gap-1.5">
-                                  {project.teamMembers.map(
+                              {projectTeamMembers.length >
+                              0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                  {projectTeamMembers.map(
                                     (
                                       member,
                                       index
                                     ) => (
-                                      <span
-                                        key={`${member}-${index}`}
-                                        className="rounded-md bg-slate-100 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600"
+                                      <div
+                                        key={`${getTeamMemberId(
+                                          member
+                                        )}-${index}`}
+                                        className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2"
                                       >
-                                        {member}
-                                      </span>
+                                        <p className="text-xs font-semibold text-blue-700">
+                                          {getEmployeeName(
+                                            member
+                                          )}
+                                        </p>
+
+                                        {typeof member ===
+                                          "object" &&
+                                          member.email && (
+                                            <p className="mt-0.5 text-[10px] text-blue-500">
+                                              {
+                                                member.email
+                                              }
+                                            </p>
+                                          )}
+                                      </div>
                                     )
                                   )}
                                 </div>
                               ) : (
                                 <p className="text-xs text-slate-400">
-                                  No team members added.
+                                  No employees assigned.
                                 </p>
                               )}
                             </div>
 
-                            {/* DOCUMENTS */}
+                            {/* ==================================================
+                                DOCUMENTS
+                            ================================================== */}
 
                             <div className="mt-5 border-t border-slate-100 pt-5">
                               <div className="mb-3 flex items-center justify-between">
@@ -1646,12 +1968,12 @@ function AdminProjects() {
                                           </div>
                                         </div>
 
-                                        {/* VIEW */}
-
                                         {document.url && (
                                           <button
                                             type="button"
-                                            onClick={(e) => {
+                                            onClick={(
+                                              e
+                                            ) => {
                                               e.stopPropagation();
 
                                               handlePreviewDocument(
@@ -1682,9 +2004,7 @@ function AdminProjects() {
                               <button
                                 type="button"
                                 onClick={() =>
-                                  setExpandedId(
-                                    null
-                                  )
+                                  setExpandedId(null)
                                 }
                                 className="rounded-lg px-4 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
                               >
@@ -1718,9 +2038,7 @@ function AdminProjects() {
               e.stopPropagation()
             }
           >
-            {/* =========================
-                HEADER
-            ========================= */}
+            {/* HEADER */}
 
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div className="min-w-0">
@@ -1745,23 +2063,28 @@ function AdminProjects() {
               </button>
             </div>
 
-            {/* =========================
-                DOCUMENT CONTENT
-            ========================= */}
+            {/* DOCUMENT CONTENT */}
 
             <div className="flex-1 overflow-auto bg-slate-100 p-4">
-              {/* PDF */}
+              {/* PDF / OFFICE */}
 
-              {isPdf(previewDocument) || isOfficeDocument(previewDocument) ? (
+              {isPdf(previewDocument) ||
+              isOfficeDocument(
+                previewDocument
+              ) ? (
                 <iframe
-                  src={getDocumentPreviewUrl(previewDocument)}
+                  src={getDocumentPreviewUrl(
+                    previewDocument
+                  )}
                   title={
                     previewDocument.name ||
                     "Document Preview"
                   }
                   className="h-full min-h-[70vh] w-full rounded-lg border border-slate-200 bg-white"
                 />
-              ) : isImage(previewDocument) ? (
+              ) : isImage(
+                  previewDocument
+                ) ? (
                 /* IMAGE */
 
                 <div className="flex min-h-full items-center justify-center">
@@ -1791,7 +2114,9 @@ function AdminProjects() {
                   </p>
 
                   <a
-                    href={previewDocument.url}
+                    href={
+                      previewDocument.url
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-5 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
@@ -1809,3 +2134,4 @@ function AdminProjects() {
 }
 
 export default AdminProjects;
+

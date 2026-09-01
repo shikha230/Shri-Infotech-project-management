@@ -7,10 +7,11 @@ import Login from "./pages/Login";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProjects from "./pages/admin/AdminProjects";
 import CreateProject from "./pages/admin/CreateProject";
-
+import ProjectDetails from "./pages/user/ProjectDetails";
 import UserDashboard from "./pages/user/UserDashboard";
-
+import AdminTasks from "./pages/admin/AdminTasks";
 import { useAuth } from "./context/AuthContext";
+import Employees from "./pages/admin/Employees";
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, isAuthenticated } = useAuth();
@@ -29,24 +30,11 @@ function ProtectedRoute({ children, allowedRoles }) {
 function App() {
   return (
     <Routes>
-
       {/* ================= PUBLIC ROUTES ================= */}
 
-      <Route
-        path="/login"
-        element={<Login />}
-      />
-
-      <Route
-        path="/admin/forgot-password"
-        element={<ForgotPassword />}
-      />
-
-      <Route
-        path="/reset-password/:token"
-        element={<ResetPassword />}
-      />
-
+      <Route path="/login" element={<Login />} />
+      <Route path="/admin/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
 
       {/* ================= ADMIN ROUTES ================= */}
 
@@ -58,6 +46,19 @@ function App() {
           </ProtectedRoute>
         }
       />
+
+      <Route
+        path="/admin/tasks"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <AdminTasks />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+  path="/admin/employees"
+  element={<Employees />}
+/>
 
       <Route
         path="/admin/projects"
@@ -77,31 +78,48 @@ function App() {
         }
       />
 
-
       {/* ================= USER ROUTES ================= */}
 
       <Route
         path="/user"
         element={
           <ProtectedRoute allowedRoles={["employee"]}>
-            <UserDashboard />
+            <UserDashboard initialView="dashboard" />
           </ProtectedRoute>
         }
       />
 
+      <Route
+        path="/user/projects"
+        element={
+          <ProtectedRoute allowedRoles={["employee"]}>
+            <UserDashboard initialView="projects" />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/user/tasks"
+        element={
+          <ProtectedRoute allowedRoles={["employee"]}>
+            <UserDashboard initialView="tasks" />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/user/projects/:id"
+        element={
+          <ProtectedRoute allowedRoles={["employee"]}>
+            <ProjectDetails />
+          </ProtectedRoute>
+        }
+      />
 
       {/* ================= DEFAULT ================= */}
 
-      <Route
-        path="/"
-        element={<Navigate to="/login" replace />}
-      />
-
-      <Route
-        path="*"
-        element={<Navigate to="/login" replace />}
-      />
-
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }

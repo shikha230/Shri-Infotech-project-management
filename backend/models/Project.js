@@ -30,10 +30,15 @@ const projectSchema = new mongoose.Schema(
       default: [],
     },
 
-    teamMembers: {
-      type: [String],
-      default: [],
-    },
+    // ==============================
+    // ASSIGNED EMPLOYEES
+    // ==============================
+    teamMembers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
 
     teamSize: {
       type: Number,
@@ -96,7 +101,4 @@ const projectSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model(
-  "Project",
-  projectSchema
-);
+module.exports = mongoose.model("Project", projectSchema);

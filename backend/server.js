@@ -11,6 +11,8 @@ const userRoutes = require("./routes/userRoutes");
 const customerRoutes = require("./routes/customerRoutes");
 const authRoutes = require("./routes/authRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
+const taskRoutes = require("./routes/taskRoutes");
+const employeeRoutes = require("./routes/employeeRoutes");
 
 console.log("Cloudinary config check:", {
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? "FOUND" : "MISSING",
@@ -29,6 +31,8 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/tasks", taskRoutes);
+app.use("/api/employees", employeeRoutes);
 app.get("/", (req, res) => {
   res.json({
     message: "CRM Backend is running",

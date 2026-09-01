@@ -1,3 +1,4 @@
+
 const Project = require("../models/Project");
 const cloudinary = require("../config/cloudinary");
 
@@ -81,6 +82,14 @@ const createProject = async (req, res) => {
       documents = [];
     }
 
+    if (!Array.isArray(teamMembers)) {
+      teamMembers = [];
+    }
+
+    if (!Array.isArray(technologies)) {
+      technologies = [];
+    }
+
     // ==============================
     // CREATE PROJECT
     // ==============================
@@ -92,19 +101,12 @@ const createProject = async (req, res) => {
 
       status: status || "Planning",
 
-      technologies: Array.isArray(technologies)
-        ? technologies
-        : [],
+      technologies,
 
-      teamMembers: Array.isArray(teamMembers)
-        ? teamMembers
-        : [],
+      teamMembers,
 
       teamSize:
-        Number(teamSize) ||
-        (Array.isArray(teamMembers)
-          ? teamMembers.length
-          : 0),
+        Number(teamSize) || teamMembers.length,
 
       budget: Number(budget) || 0,
 
@@ -119,15 +121,18 @@ const createProject = async (req, res) => {
     // RESPONSE
     // ==============================
 
+    const populatedProject =
+      await Project.findById(project._id).populate(
+        "teamMembers",
+        "name email"
+      );
+
     res.status(201).json({
       message: "Project created successfully",
-      project,
+      project: populatedProject,
     });
   } catch (error) {
-    console.error(
-      "Create project error:",
-      error
-    );
+    console.error("Create project error:", error);
 
     res.status(500).json({
       message: "Server error",
@@ -141,19 +146,68 @@ const createProject = async (req, res) => {
 // ========================================
 const getProjects = async (req, res) => {
   try {
-    const projects = await Project.find().sort({
-      createdAt: -1,
-    });
+    const projects = await Project.find()
+      .populate("teamMembers", "name email")
+      .sort({
+        createdAt: -1,
+      });
 
     res.json({
       count: projects.length,
       projects,
     });
   } catch (error) {
-    console.error(
-      "Get projects error:",
-      error
-    );
+    console.error("Get projects error:", error);
+
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+// ========================================
+// GET MY PROJECTS
+// EMPLOYEE
+// ========================================
+const getMyProjects = async (req, res) => {
+  try {
+    const projects = await Project.find({
+  teamMembers: req.user.userId,
+})
+  .select("-budget")
+  .populate("teamMembers", "name email")
+  .sort({ createdAt: -1 });
+
+    res.json({
+      count: projects.length,
+      projects,
+    });
+  } catch (error) {
+    console.error("Get my projects error:", error);
+
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+const getProjectById = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id)
+      .populate("teamMembers", "name email");
+
+    if (!project) {
+      return res.status(404).json({
+        message: "Project not found",
+      });
+    }
+
+    res.json({
+      project,
+    });
+  } catch (error) {
+    console.error("Get project by ID error:", error);
 
     res.status(500).json({
       message: "Server error",
@@ -167,15 +221,81 @@ const getProjects = async (req, res) => {
 // ========================================
 const updateProject = async (req, res) => {
   try {
+    let {
+      technologies,
+      teamMembers,
+      documents,
+      ...otherFields
+    } = req.body;
+
+    // ==============================
+    // PARSE TECHNOLOGIES
+    // ==============================
+
+    if (typeof technologies === "string") {
+      try {
+        technologies = JSON.parse(technologies);
+      } catch {
+        technologies = technologies
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
+    }
+
+    // ==============================
+    // PARSE TEAM MEMBERS
+    // ==============================
+
+    if (typeof teamMembers === "string") {
+      try {
+        teamMembers = JSON.parse(teamMembers);
+      } catch {
+        teamMembers = teamMembers
+          .split(",")
+          .map((member) => member.trim())
+          .filter(Boolean);
+      }
+    }
+
+    // ==============================
+    // PARSE DOCUMENTS
+    // ==============================
+
+    if (typeof documents === "string") {
+      try {
+        documents = JSON.parse(documents);
+      } catch {
+        documents = [];
+      }
+    }
+
+    const updateData = {
+      ...otherFields,
+    };
+
+    if (Array.isArray(technologies)) {
+      updateData.technologies = technologies;
+    }
+
+    if (Array.isArray(teamMembers)) {
+      updateData.teamMembers = teamMembers;
+      updateData.teamSize = teamMembers.length;
+    }
+
+    if (Array.isArray(documents)) {
+      updateData.documents = documents;
+    }
+
     const project =
       await Project.findByIdAndUpdate(
         req.params.id,
-        req.body,
+        updateData,
         {
           new: true,
           runValidators: true,
         }
-      );
+      ).populate("teamMembers", "name email");
 
     if (!project) {
       return res.status(404).json({
@@ -188,10 +308,7 @@ const updateProject = async (req, res) => {
       project,
     });
   } catch (error) {
-    console.error(
-      "Update project error:",
-      error
-    );
+    console.error("Update project error:", error);
 
     res.status(500).json({
       message: "Server error",
@@ -206,7 +323,7 @@ const updateProject = async (req, res) => {
 const deleteProject = async (req, res) => {
   try {
     // ==========================================
-    // 1. FIND PROJECT FIRST
+    // 1. FIND PROJECT
     // ==========================================
 
     const project = await Project.findById(
@@ -249,7 +366,6 @@ const deleteProject = async (req, res) => {
           document.publicId
         );
 
-        // Use the resource type saved with the document.
         const resourceType =
           document.resourceType || "raw";
 
@@ -266,8 +382,6 @@ const deleteProject = async (req, res) => {
           result
         );
       } catch (cloudinaryError) {
-        // Don't immediately stop the entire deletion
-        // if one Cloudinary file fails.
         console.error(
           `Failed to delete Cloudinary file: ${document.publicId}`,
           cloudinaryError
@@ -276,7 +390,7 @@ const deleteProject = async (req, res) => {
     }
 
     // ==========================================
-    // 4. DELETE PROJECT FROM MONGODB
+    // 4. DELETE PROJECT
     // ==========================================
 
     await Project.findByIdAndDelete(
@@ -293,10 +407,7 @@ const deleteProject = async (req, res) => {
       project,
     });
   } catch (error) {
-    console.error(
-      "Delete project error:",
-      error
-    );
+    console.error("Delete project error:", error);
 
     res.status(500).json({
       message: "Server error",
@@ -312,6 +423,9 @@ const deleteProject = async (req, res) => {
 module.exports = {
   createProject,
   getProjects,
+  getMyProjects,
+  getProjectById,
   updateProject,
   deleteProject,
 };
+
